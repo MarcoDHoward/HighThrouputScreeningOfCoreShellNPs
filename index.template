@@ -1,0 +1,369 @@
+<html>
+
+    <head>
+        <script src='static/jquery.min.js'></script>
+        <script src='static/underscore-min.js'></script>
+        <script src='static/bootstrap.min.js'></script>
+        <script src='static/sprintf.js'></script>
+        <script src='static/clamps.js'></script>
+	<script src="/static/xyz.all.js"></script>
+	
+        <link rel="stylesheet" type="text/css" href="static/bootstrap.min.css">
+        <link rel="stylesheet" type="text/css" href="static/style.css">
+    </head>
+    
+    <body>
+        <div class='container' id='container'></div>
+	<div>	
+	<canvas id = 'canvas1' url = '' class='xyz'  filetype='xyz'></canvas>
+	</div>
+	</body>
+    
+    <script>
+
+	
+	
+	/**
+ * Converts an HSL color value to RGB. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+ * Assumes h, s, and l are contained in the set [0, 1] and
+ * returns r, g, and b in the set [0, 255].
+ *
+ * @param   Number  h       The hue
+ * @param   Number  s       The saturation
+ * @param   Number  l       The lightness
+ * @return  Array           The RGB representation
+ */
+function hslToRgb(h, s, l){
+    var r, g, b;
+
+    if(s == 0){
+        r = g = b = l; // achromatic
+    }else{
+        function hue2rgb(p, q, t){
+            if(t < 0) t += 1;
+            if(t > 1) t -= 1;
+            if(t < 1/6) return p + (q - p) * 6 * t;
+            if(t < 1/2) return q;
+            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+
+    return [r * 255, g * 255, b * 255];
+}
+
+function getURL(key){
+  	var split = key.split('/'); 
+	var a1 = parseInt(split[0]); 
+	var m1 = split[1]; 
+	var a2 = parseInt(split[2]); 
+	var m2 = split[3]; 
+	var type = split[4]; 
+	var tableTitle = sprintf('%dM1@%dM2 %s', a1,a2, type); 
+	console.log(tables[tableTitle]['cells'][sprintf('%s,%s', m1,m2)]['url']['s1']);
+	return(tables[tableTitle]['cells'][sprintf('%s,%s', m1,m2)]['url']['s1']);
+	}
+
+var xyzdata = {{xyzdata}}
+	
+
+
+
+	
+
+	var container = document.getElementById('container');
+        var dblock = ['Sc', 'Ti',  'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 
+                      'Y',  'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 
+                      'Hf', 'Ta',  'W', 'Re', 'Os', 'Ir', 'Pt', 'Au'];
+        var data = {{!data}};
+        //var xyzdata = {{xyzdata}};
+        var tables = {};
+	//var testvar = {{!xyzdata}};
+        _.each(data, function(value, key) {
+            var split = key.split('/');
+            var a1 = parseInt(split[0]);
+            var m1 = split[1];
+            var a2 = parseInt(split[2]);
+            var m2 = split[3];
+            if (m2 == 'None') {
+                return;
+            }
+            var type = split[4];
+            tableTitle = sprintf('%dM1@%dM2 %s', a1, a2, type);
+            if (! _.has(tables, tableTitle)) {
+                tables[tableTitle] = {max: -1e300, min: 1e300, a1: a1, a2: a2, type: type, cells: {}};
+            }
+            cellKey = sprintf('%s,%s', m1, m2);
+            tables[tableTitle]['cells'][cellKey] = {};
+ 	    tables[tableTitle]['cells'][cellKey]['url'] = {};
+		
+            var val = parseFloat(value['result']);
+            tables[tableTitle]['cells'][cellKey]['actualvalue'] = val;
+            if (type in clamps) {
+                val = Math.max(clamps[type]['min'], Math.min(val, clamps[type]['max']))
+            }
+            tables[tableTitle]['cells'][cellKey]['value'] = val;
+            tables[tableTitle]['cells'][cellKey]['metadata'] = value['metadata'];
+            tables[tableTitle]['cells'][cellKey]['username'] = value['username'];
+	   
+
+	    tables[tableTitle]['cells'][cellKey]['cellID'] = key;
+	    
+	    
+            tables[tableTitle]['cells'][cellKey]['url']['s1'] = value['url']['s1'];
+            tables[tableTitle]['cells'][cellKey]['url']['s2'] = value['url']['s2'];
+
+            if (tables[tableTitle]['cells'][cellKey]['username'] == undefined) {
+                tables[tableTitle]['cells'][cellKey]['username'] = "unknown";
+            }
+            tables[tableTitle]['max'] = Math.max(val, tables[tableTitle]['max']);
+            tables[tableTitle]['min'] = Math.min(val, tables[tableTitle]['min']);
+        });
+        var tableSelect = document.createElement('select');
+        container.appendChild(tableSelect);
+        _.each(tables, function(table, title) {
+            var option = document.createElement('option');
+            option.textContent = title;
+            tableSelect.appendChild(option);
+        });
+        tableContainers = {};
+        _.each(tables, function(table, title) {
+            var tableContainer = document.createElement('div');
+            tableContainers[title] = tableContainer;
+            container.appendChild(tableContainer);
+            var heading = document.createElement('h3');
+            tableContainer.appendChild(heading);
+            heading.textContent = title;
+            var tableElement = document.createElement('table');
+            tableContainer.appendChild(tableElement);
+            var coreLabelled = false;
+            _.each(dblock, function(m1) {
+                var tr = document.createElement('tr');
+                tableElement.appendChild(tr);
+                if (!coreLabelled) {
+                    var td = document.createElement('td');
+                    td.rowSpan = dblock.length + 1;
+                    td.style.border = "none";
+                    tr.appendChild(td);
+                    var label = document.createElement('div');
+                    label.innerHTML = '<h4 id="core-label">core</h4>';
+                    td.appendChild(label);
+                    coreLabelled = true;
+                }
+                var td = document.createElement('td');
+                td.textContent = m1;
+                tr.appendChild(td);
+
+                _.each(dblock, function(m2) {
+                    var td = document.createElement('td');
+                    cellKey = sprintf('%s,%s', m1, m2);
+                    if (_.has(table['cells'], cellKey)) {
+                        var diff = table['max'] - table['min'];
+                        diff = Math.max(1, diff); // prevent divide by zero when max == min.
+                        var val = table['cells'][cellKey]['value'];
+			//var url = table['cells'][cellKey]['url']['s1']
+                        var pct = (val - table['min']) / diff;
+                        var blue = Math.floor(255 * (1 - pct));
+                        var red = Math.floor(255 * pct);
+
+                        if (table['type'] == "Cohesive Energy") {				
+				diff = table['max'] - table['min'];				
+				pct = (val - table['min']) / diff;				
+				var hue = 0.50 * pct;
+				var color = new Array();
+				color = hslToRgb(hue, 1, 0);
+				if (val < clamps['Cohesive Energy']['max']){
+					color = hslToRgb(hue, 1, .5);
+				}     		        
+				td.style.background = sprintf('rgb(%d,%d,%d)',color[0], color[1], color[2]);
+				
+				
+
+          
+              }
+
+                        if (table['type'] == "Binding Energy") {
+							var target_energy = -1.51;
+							var color = new Array();
+							var hue = .5
+							var pct = 0
+							if (val <= target_energy){
+								diff = target_energy - (clamps["Binding Energy"]['min']);
+								diff = Math.max(1, diff); // prevent divide by zero when max == min.
+								pct = (val - table['min']) / diff;
+								hue = 0.6 * pct
+								color = hslToRgb(hue, 1, .5);
+								td.style.background = sprintf('rgb(%d,%d,%d)', color[0], color[1], color[2]);
+							}
+							
+							if (val > target_energy){
+								diff = val - target_energy
+								diff = Math.max(1, diff); // prevent divide by zero when max == min.
+								hue = 0.6*((1-pct))
+								color = hslToRgb(hue, 1, .5);
+								td.style.background = sprintf('rgb(%d,%d,%d)', color[0], color[1],color[2]);
+							}
+							if (val == clamps["Binding Energy"]['max']) {
+								color = hslToRgb(0, 1, 0);
+								td.style.background = sprintf('rgb(%d,%d,%d)', color[0], color[1], color[2] );
+							}
+
+							if (val == clamps["Binding Energy"]['min'] ) {
+								color = hslToRgb(0, 1, 0);
+								td.style.background = sprintf('rgb(%d,%d,%d)', color[0], color[1], color[2] );
+							}
+								
+
+                        }
+			
+			if (table['type'] == "Hydrogen Binding Energy") {
+							var target_energy = -0.51;
+							var color = new Array();
+							var hue = .5
+							if (val <= target_energy){
+								diff = target_energy - (clamps["Hydrogen Binding Energy"]['min']);
+								diff = Math.max(1, diff); // prevent divide by zero when max == min.
+								pct = (val - table['min']) / diff;
+								hue = 0.6 * pct
+								color = hslToRgb(hue, 1, .5);
+								td.style.background = sprintf('rgb(%d,%d,%d)', color[0], color[1], color[2]);
+							}
+							
+							if (val > target_energy){
+								diff = val - target_energy
+								diff = Math.max(1, diff); // prevent divide by zero when max == min.
+								pct = (val - target_energy) / diff;
+								hue = 0.6*(1-pct)
+								color = hslToRgb(hue, 1, .5);
+								td.style.background = sprintf('rgb(%d,%d,%d)', color[0], color[1],color[2]);
+							}
+							if (val == clamps["Hydrogen Binding Energy"]['max']) {
+								color = hslToRgb(.5, 1, 0);
+								td.style.background = sprintf('rgb(%d,%d,%d)', color[0], color[1], color[2] );
+							}
+
+							if (val == clamps["Hydrogen Binding Energy"]['min'] ) {
+								color = hslToRgb(.5, 1, 0);
+								td.style.background = sprintf('rgb(%d,%d,%d)', color[0], color[1], color[2] );
+							}
+								
+
+                        }
+
+                if (table['type'] == "Segregation Energy") {
+				if (val > 0){
+					td.style.background = sprintf('rgb(0,250,0)')
+				}
+				
+
+				if (val == 0){
+					td.style.background = sprintf('rgb(0,0,250)')
+				}
+
+				if (val < 0){
+					td.style.background = sprintf('rgb(250,0,0)')
+				}
+			}
+
+		 if (table['type'] == "Segregation Energy With Oxygen") {
+				if (val > 0){
+					td.style.background = sprintf('rgb(0,250,0)')
+				}
+				
+
+				if (val == 0){
+					td.style.background = sprintf('rgb(0,0,250)')
+				}
+
+				if (val < 0){
+					td.style.background = sprintf('rgb(250,0,0)')
+				}
+			}
+                         
+                       
+                      	
+                        div = document.createElement('div');
+                        div.title = sprintf('%s@%s %s %.3e\n', m1, m2, table['type'], table['cells'][cellKey]['actualvalue']);
+                        div.title += table['cells'][cellKey]['metadata'].replace(/<br>/g, '\n');
+			td.id += table['cells'][cellKey]['cellID'];
+                        div.style.width = '100%';
+                        div.style.height = '100%';
+		
+			
+			/**div.appendChild(canvas) */
+                        $(div).tooltip();
+                        td.appendChild(div);
+                    }
+                    tr.appendChild(td);
+                });
+            });
+            var tr = document.createElement('tr');
+            tableElement.appendChild(tr);
+            var td = document.createElement('td');
+            tr.appendChild(td);
+            _.each(dblock, function(m2) {
+                var td = document.createElement('td');
+                td.textContent = m2;
+                tr.appendChild(td);
+            });
+	        var tr = document.createElement('tr');
+            tableElement.appendChild(tr);
+            var td = document.createElement('td');
+            tr.appendChild(td);
+            td.style.border = "none";
+            var td = document.createElement('td');
+            tr.appendChild(td);
+            td.innerHTML = '<h4>shell</h4>';
+    	    td.setAttribute('colspan', dblock.length+2);
+    	    td.style.border = 'none';
+        });
+        function hideAllTables() {
+            _.each(tableContainers, function(div) {
+                div.style.display = 'none';
+            });
+        }
+        hideAllTables();
+        function showTable(title) {
+            tableContainers[title].style.display = 'block';
+        }
+        $(tableSelect).change(function() {
+            hideAllTables();
+            showTable(tableSelect.options[tableSelect.selectedIndex].text);
+        });
+        showTable(tableSelect.options[tableSelect.selectedIndex].text);
+
+
+
+$("td").click(function(){
+   var eleID = String(this.id); //or $(this).id but no sense to wrap it to just get an id.
+   
+   console.log(getURL(eleID));
+  
+  // canvas2.attr('class', 'xyz');
+  // canvas2.id = "canvas2";
+  //canvas1.setAttribute('url', String(getURL(eleID)) );
+  //_xyz_populate();
+   
+});
+
+
+
+
+
+
+
+	
+	       
+
+    </script>
+
+</html>
+
+
