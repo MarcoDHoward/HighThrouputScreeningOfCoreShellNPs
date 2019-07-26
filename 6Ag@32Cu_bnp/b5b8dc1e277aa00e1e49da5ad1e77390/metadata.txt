@@ -1,0 +1,4 @@
+mdh2736
+login1.stampede.tacc.utexas.edu
+/work/02058/mdh2736/nanoparticle/converged/6Ag@32Cu_bnp
+Tue Aug 20 11:25:48 CDT 2013

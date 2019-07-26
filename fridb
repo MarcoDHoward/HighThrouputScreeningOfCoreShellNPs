@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+
+import httplib
+import urllib
+import glob
+import cPickle as pickle
+import os
+import sys
+import getpass
+import optparse
+
+# Use this for production.
+
+# Use this for debugging.
+# HOST = 'localhost'
+# PREFIX = ""
+# PORT = '8080'
+
+def get_tarball():
+    os.system("whoami > metadata.txt; hostname >> metadata.txt; pwd >> metadata.txt; date >> metadata.txt")
+    os.system('tar -c * | gzip -n > fridb.tempdata.tar.gz')
+    tarball = ''.join(open('fridb.tempdata.tar.gz', 'r').readlines())
+    os.system('rm fridb.tempdata.tar.gz')
+    return tarball
+
+
+def insert(code, username, tarball, host, prefix, port):
+    data = pickle.dumps(dict(code=code, username=username, tarball=tarball))
+    params = urllib.urlencode(dict(data=data))
+    headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'text/plain'}
+    conn = httplib.HTTPConnection(host=host, port=port)
+    conn.request('POST', prefix + '/insert', params, headers)
+    return conn.getresponse().read()
+
+
+def check_code(code, host, prefix, port):
+    params = urllib.urlencode(dict(code=code))
+    headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'text/plain'}
+    conn = httplib.HTTPConnection(host=host, port=port)
+    conn.request('POST', prefix + '/checkcode', params, headers)
+    return conn.getresponse().read()
+
+
+def check_user(username, host, prefix, port):
+    params = urllib.urlencode(dict(username=username))
+    headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'text/plain'}
+    conn = httplib.HTTPConnection(host=host, port=port)
+    conn.request('POST', prefix + '/checkuser', params, headers)
+    return conn.getresponse().read()
+
+
+if __name__ == "__main__":
+    parser = optparse.OptionParser(usage='%prog calculation-code')
+    parser.add_option('-d', '--debug', dest='debug', action='store_true', 
+                      default=False, help='Connect to localhost.')
+    parser.add_option('-u', '--user', dest='username', default=getpass.getuser(), 
+                      help='Your FRI username (optional if the same on this machine).')
+    (options, arguments) = parser.parse_args()
+    if options.debug:
+        host = 'localhost'
+        prefix = ''
+        port = 8080
+    else:
+        host = 'fri.cnm.utexas.edu'
+        prefix = '/~fri/fridb/server.py'
+        port = 80
+    
+    if not os.path.isfile("OUTCAR"):
+        parser.error("no OUTCAR file in the current directory.")
+    
+    if len(arguments) == 0:
+        parser.error('no code provided.')
+    # Get and check the code.
+    code = arguments[0]
+    response = check_code(code, host, prefix, port)
+    if response == 'false':
+        parser.error('that code does not exist.')
+
+    response = check_user(options.username, host, prefix, port)
+    if response == 'false':
+        parser.error('that username does not exist.')
+
+    # Upload the data.
+    tarball = get_tarball()
+    response = insert(code, options.username, tarball, host, prefix, port)
+    print response
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

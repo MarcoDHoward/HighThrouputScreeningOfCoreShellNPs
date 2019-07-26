@@ -1,0 +1,13 @@
+#!/bin/bash
+#$ -N j6Au_32Co_npo 
+#$ -cwd
+#$ -j y
+#$ -V
+#$ -m es
+#$ -pe mpi12 12
+#$ -o ll_out
+#$ -S /bin/bash
+#$ -M marcodavidhoward@gmail.com
+
+mpirun -n $NSLOTS vasp_gamma
+

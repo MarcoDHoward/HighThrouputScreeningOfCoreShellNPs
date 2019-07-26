@@ -1,0 +1,15 @@
+#!/bin/bash
+#$ -N j6Au_32Ag_sno 
+#$ -cwd
+#$ -j y
+#$ -o ll_out
+#$ -q normal
+#$ -A FRI.Stream.Henkelman
+#$ -m e
+#$ -l h_rt=06:00:00
+#$ -pe 12way 24
+#$ -M marcodavidhoward@gmail.com
+#$ -V
+
+set -x
+ibrun ~zach/bin/vasp_fri_gamma
